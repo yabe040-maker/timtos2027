@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIMTOS 2027 跨部門協同戰情中心 (V29 最終極致版)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        techdark: '#0B0F19',
+                        techcard: '#131C2E',
+                        techborder: '#1E293B',
+                        accent: '#EAB308',
+                        accentHover: '#CA8A04'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #F8FAFC; color: #1E293B; }
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        [v-cloak] { display: none; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 text-base">
+    <div id="app" v-cloak>
+        <div class="min-h-screen flex fade-in">
+            <!-- 左側導覽列 (支援新增專案/成員) -->
+            <div class="w-80 bg-techcard border-r border-techborder flex flex-col shadow-2xl hidden md:flex shrink-0 relative z-20 text-gray-100">
+                <div class="p-6 border-b border-techborder bg-techdark text-center">
+                    <h2 class="text-3xl font-black tracking-wider text-accent drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]">TIMTOS <span class="text-white">2027</span></h2>
+                    <p class="text-sm text-gray-400 mt-2 uppercase tracking-widest font-bold">跨部門協同戰情中心</p>
+                </div>
+                <div class="p-5 flex-1 overflow-y-auto">
+                    <div class="text-sm text-gray-500 uppercase font-black tracking-widest mb-4 pl-2 mt-2">系統總覽</div>
+                    <button @click="activeProject = null" :class="['w-full text-left px-5 py-4 rounded-xl mb-5 flex items-center transition font-bold border text-base', activeProject === null ? 'bg-accent text-techdark border-accent shadow-[0_0_15px_rgba(234,179,8,0.4)]' : 'bg-techdark/50 text-gray-300 border-techborder hover:border-accent/50 hover:text-accent']">
+                        <i class="fas fa-columns w-7 text-lg"></i> 總覽與彙整行事曆
+                    </button>
+                    
+                    <div class="flex justify-between items-center text-sm text-gray-500 uppercase font-black tracking-widest mt-8 mb-4 pl-2">
+                        <span>職務/部門專案</span>
+                        <button @click="isAddingProject = true" class="text-accent hover:text-white transition" title="新增專案/成員"><i class="fas fa-plus-circle text-lg"></i></button>
+                    </div>
+                    <div class="space-y-3">
+                        <button v-for="p in projects" :key="p.id" @click="activeProject = p" 
+                            :class="['w-full text-left px-5 py-4 rounded-xl text-base flex justify-between items-center transition border shadow-inner', 
+                            activeProject?.id === p.id ? 'bg-accent text-techdark border-accent font-black shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-techdark/80 text-gray-200 border-techborder hover:border-accent/50 font-bold']">
+                            <div class="flex items-center truncate">
+                                <span :class="['w-4 h-4 rounded-full mr-3 shrink-0', p.dotColor]"></span>
+                                <span class="truncate">{{ p.name }}</span>
+                            </div>
+                            <span :class="['text-sm px-2.5 py-1 rounded-md font-black', activeProject?.id === p.id ? 'bg-techdark/20 text-techdark' : 'bg-techcard text-accent']">{{ getProjectProgress(p.id) }}%</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-5 border-t border-techborder flex items-center justify-between shrink-0 bg-techdark">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent to-amber-600 flex items-center justify-center text-lg font-black text-techdark shadow-lg border border-accent">
+                            ☁️
+                        </div>
+                        <div class="ml-4">
+                            <span class="block text-base text-gray-200 font-bold truncate w-28">雲端狀態</span>
+                            <span class="block text-sm text-emerald-400 font-bold"><i class="fas fa-circle text-[10px] mr-1.5 animate-pulse"></i>自動同步中</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側主要工作區域 (白底) -->
+            <div class="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+                <!-- Header -->
+                <header class="bg-white shadow-sm py-5 px-8 flex justify-between items-center shrink-0 border-b border-gray-200 z-10">
+                    <h1 class="text-3xl font-black text-gray-900 tracking-tight flex items-center">
+                        {{ activeProject ? activeProject.name + ' (負責人專案)' : '跨部門總戰情儀表板' }}
+                        <span v-if="!activeProject" class="ml-5 text-sm bg-amber-50 text-amber-800 px-4 py-2 rounded-lg border border-amber-200 font-black shadow-sm"><i class="fas fa-flag-checkered mr-2"></i> 距離開展還有：{{ countdownMonthsDays }}</span>
+                    </h1>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-sm bg-emerald-100 text-emerald-800 font-bold px-4 py-2 rounded-lg border border-emerald-200"><i class="fas fa-cloud text-emerald-600 mr-2"></i> 進度已自動儲存</span>
+                        <div class="flex items-center text-base font-bold text-gray-700 bg-gray-50 px-5 py-2.5 rounded-xl border border-gray-200 shadow-inner">
+                            <i class="far fa-clock mr-2 text-amber-600"></i> 系統日期: <span class="ml-1 text-gray-900">{{ currentDate }}</span>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="flex-1 overflow-y-auto p-6 md:p-10 relative bg-gray-50">
+                    
+                    <!-- === 總覽儀表板 === -->
+                    <div v-if="!activeProject" class="space-y-10 fade-in max-w-screen-2xl mx-auto">
+                        
+                        <!-- 1. 跨部門行事曆彙整表 -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="bg-gray-900 p-5 flex items-center justify-between text-white">
+                                <div class="flex items-center space-x-4">
+                                    <h3 class="text-2xl font-black flex items-center"><i class="far fa-calendar-alt mr-3 text-amber-400"></i>跨部門行事曆彙整表</h3>
+                                    <span class="text-sm bg-amber-400 text-gray-900 font-black px-3 py-1.5 rounded-full shadow animate-pulse" v-if="calendarYear === 2027 && calendarMonth === 2">🔥 TIMTOS 2027 展期 (3/2-3/6) 🔥</span>
+                                </div>
+                                <div class="flex items-center space-x-6">
+                                    <!-- 💡 動態產生所有專案/職務圖例 -->
+                                    <div class="hidden lg:flex flex-wrap items-center space-x-4 text-sm font-bold text-gray-300">
+                                        <span v-for="p in projects" :key="'leg-' + p.id" class="flex items-center">
+                                            <span :class="['w-3.5 h-3.5 rounded-full mr-1.5', p.dotColor]"></span>{{ p.name }}
+                                        </span>
+                                        <span class="flex items-center"><span class="w-3.5 h-3.5 rounded-full bg-gray-300 mr-1.5"></span>已完成</span>
+                                    </div>
+                                    <div class="flex space-x-1 bg-gray-800 rounded-xl p-1.5 border border-gray-700">
+                                        <button @click="changeMonth(-1)" class="w-10 h-10 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-amber-400 transition"><i class="fas fa-chevron-left"></i></button>
+                                        <div class="px-5 py-1 text-white font-bold text-lg flex items-center">{{ calendarYear }} 年 {{ calendarMonth + 1 }} 月</div>
+                                        <button @click="changeMonth(1)" class="w-10 h-10 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-amber-400 transition"><i class="fas fa-chevron-right"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-5 bg-white">
+                                <div class="calendar-grid mb-3">
+                                    <div v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="text-center text-base font-black text-gray-500 py-2">{{ day }}</div>
+                                </div>
+                                <div class="calendar-grid">
+                                    <div v-for="(day, index) in calendarGrid" :key="index" 
+                                        :class="['min-h-[140px] rounded-2xl p-3 shadow-sm transition relative border flex flex-col justify-between', 
+                                        isExhibitionDate(day) ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400 shadow-md' : 'bg-white border-gray-200 hover:border-amber-400',
+                                        isToday(day) ? 'ring-2 ring-amber-500 bg-amber-50/50' : '']">
+                                        <div v-if="day">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <div :class="['text-sm font-black w-8 h-8 rounded-full flex items-center justify-center', isToday(day) ? 'bg-amber-500 text-white shadow-lg ring-4 ring-amber-100' : (isExhibitionDate(day) ? 'bg-amber-500 text-white font-black' : 'text-gray-700')]">{{ day.getDate() }}</div>
+                                                <span v-if="isToday(day)" class="text-xs font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded">今天</span>
+                                                <span v-else-if="isExhibitionDate(day)" class="text-xs font-black text-amber-800 bg-amber-200 px-2 py-0.5 rounded shadow-sm">展期</span>
+                                            </div>
+                                            <div class="space-y-1.5 mt-1 max-h-[90px] overflow-y-auto custom-scrollbar">
+                                                <!-- 行事曆事件 -->
+                                                <div v-for="evt in getEventsForDay(day)" :key="evt.id" 
+                                                    @click="jumpToProjectTask(evt.projectId, evt.taskId)"
+                                                    :class="['text-xs font-bold px-2 py-1.5 rounded-lg border shadow-sm flex items-center justify-between hover:opacity-80 transition cursor-pointer', evt.badgeClass]" 
+                                                    :title="'點擊前往 [' + evt.projectName + '] 查看: ' + evt.name + ' (' + evt.label + ')'">
+                                                    <span class="truncate"><span class="opacity-80 mr-1.5 font-black">[{{ evt.projectName.slice(0,2) }}]</span>{{ evt.name }}</span>
+                                                    <span class="text-[10px] opacity-90 ml-2 shrink-0 font-black">{{ evt.label }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 各職務負責人工作動態 (已刪除右上角亂七八糟的計數 badge) -->
+                        <div>
+                            <h3 class="text-2xl font-black text-gray-900 mb-6 flex items-center"><i class="fas fa-tasks mr-3 text-amber-600"></i>各職務負責人工作動態</h3>
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                                
+                                <div v-for="p in projects" :key="'status-' + p.id" class="bg-white rounded-3xl shadow-md border border-gray-200 overflow-hidden flex flex-col h-[750px]">
+                                    <div class="p-5 border-b border-gray-200 bg-gray-900 text-white flex justify-between items-center">
+                                        <h4 class="font-black flex items-center text-lg">
+                                            <span :class="['w-4 h-4 rounded-full mr-3', p.dotColor]"></span>{{ p.name }}
+                                        </h4>
+                                    </div>
+                                    <div class="p-6 flex-1 overflow-y-auto bg-gray-50/50 space-y-8">
+                                        
+                                        <!-- 行進中的工作 -->
+                                        <div>
+                                            <div class="text-base font-black text-blue-900 uppercase tracking-wider mb-3 px-1 flex items-center"><i class="fas fa-spinner mr-2 text-blue-600"></i> 行進中的工作</div>
+                                            <div v-if="getProjectInProgressTasks(p.id).length === 0" class="text-sm text-gray-400 italic px-2 pb-2">目前沒有進行中的工作</div>
+                                            <div class="space-y-3">
+                                                <div v-for="item in getProjectInProgressTasks(p.id)" :key="'prog-' + item.id" class="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm hover:border-blue-400 transition">
+                                                    <p class="text-lg font-black text-gray-900 mb-3 leading-snug">{{ item.name }}</p>
+                                                    <div class="flex justify-between items-center text-sm text-gray-600">
+                                                        <span class="text-rose-600 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100"><i class="far fa-stop-circle mr-1.5"></i> 期限: {{ item.deadline }}</span>
+                                                        <button @click="jumpToProjectTask(p.id, item.id)" class="text-blue-700 hover:text-blue-900 font-black bg-blue-100 hover:bg-blue-200 px-4 py-2 rounded-xl transition">前往任務</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 14天內待辦事項 -->
+                                        <div class="pt-4 border-t-2 border-gray-200">
+                                            <div class="text-base font-black text-amber-900 uppercase tracking-wider mb-3 px-1 flex items-center"><i class="fas fa-business-time mr-2 text-amber-600"></i> 14天內待辦開工</div>
+                                            <div v-if="getRemindersForProject(p.id).length === 0" class="text-sm text-gray-400 italic px-2 pb-2">目前無 14 天內待辦項目</div>
+                                            <div class="space-y-3">
+                                                <div v-for="rem in getRemindersForProject(p.id)" :key="'rem-' + rem.id" class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm hover:border-amber-400 transition">
+                                                    <div class="flex justify-between items-start mb-3">
+                                                        <span class="text-xs font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-lg truncate max-w-[180px] border border-gray-200">{{ rem.taskName }}</span>
+                                                        <span v-if="rem.isUrgent" class="text-xs font-black text-red-600 bg-red-100 px-3 py-1 rounded-lg animate-pulse border border-red-200">即將開工</span>
+                                                    </div>
+                                                    <p class="text-lg font-black text-gray-900 mb-3 leading-snug">{{ rem.name }}</p>
+                                                    <div class="flex justify-between items-center text-sm text-gray-600">
+                                                        <span class="text-blue-700 font-bold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"><i class="far fa-play-circle mr-1.5"></i> 開工: {{ rem.startDate }}</span>
+                                                        <button @click="jumpToProjectTask(p.id, rem.id)" class="text-amber-800 hover:text-amber-900 font-black bg-amber-100 hover:bg-amber-200 px-4 py-2 rounded-xl transition">前往任務</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- === 單一專案詳細內容 === -->
+                    <div v-else class="fade-in space-y-8 max-w-7xl mx-auto">
+                        
+                        <!-- 專案 Header -->
+                        <div class="p-8 md:p-10 rounded-3xl shadow-sm border border-amber-200 relative overflow-hidden bg-gradient-to-r from-amber-50 to-yellow-50">
+                            <i class="fas fa-bullhorn absolute -right-10 -bottom-10 text-9xl rotate-12 pointer-events-none opacity-5 text-amber-600"></i>
+                            
+                            <div class="relative z-10 flex flex-col md:flex-row justify-between md:items-end gap-6">
+                                <div>
+                                    <div class="flex items-center mb-3">
+                                        <span class="text-base font-black px-4 py-1.5 rounded-lg mr-4 text-gray-900 shadow-sm bg-amber-400">專案負責人</span>
+                                        <h2 class="text-4xl font-black text-gray-900 tracking-wide">{{ activeProject.name }}</h2>
+                                    </div>
+                                    <div class="flex items-center bg-white/80 backdrop-blur-sm px-5 py-4 rounded-2xl border border-amber-200 w-fit mt-5 shadow-sm">
+                                        <div class="text-base font-bold mr-5 text-gray-700">專案總進度</div>
+                                        <div class="w-64 bg-gray-200 rounded-full h-4 mr-5 shadow-inner overflow-hidden">
+                                            <div class="h-4 rounded-full transition-all duration-700 relative bg-amber-500 shadow" :style="{ width: getProjectProgress(activeProject.id) + '%' }"></div>
+                                        </div>
+                                        <span class="text-xl font-black text-amber-800">{{ getProjectProgress(activeProject.id) }}%</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <button @click="openEditProject" class="bg-white border-2 border-amber-300 text-amber-700 hover:bg-amber-100 px-5 py-3 rounded-xl text-base font-black shadow-sm transition">
+                                        <i class="fas fa-edit mr-2"></i>編輯專案
+                                    </button>
+                                    <button @click="deleteProject" class="bg-white border-2 border-red-300 text-red-600 hover:bg-red-50 px-5 py-3 rounded-xl text-base font-black shadow-sm transition">
+                                        <i class="fas fa-trash-alt mr-2"></i>刪除專案
+                                    </button>
+                                    <button @click="isAddingTask = true" class="bg-gray-900 hover:bg-black text-white px-6 py-3 rounded-xl text-base font-black transition shadow-lg inline-flex items-center">
+                                        <i class="fas fa-plus mr-2 text-amber-400"></i>新增大項目
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 💡 大項目快捷導覽按鈕列 -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-wrap items-center gap-3">
+                            <span class="text-sm font-black text-gray-500 uppercase tracking-wider mr-3"><i class="fas fa-compass mr-1.5 text-amber-500"></i> 快速導覽大項目：</span>
+                            <button v-for="task in getTasksForActiveProject()" :key="'nav-' + task.id" 
+                                @click="scrollToTaskSection('task-box-' + task.id)"
+                                class="text-sm font-black bg-gray-100 hover:bg-amber-500 hover:text-gray-900 text-gray-700 px-5 py-2.5 rounded-xl border border-gray-200 transition shadow-sm">
+                                <i class="fas fa-arrow-down mr-1.5 opacity-60"></i> {{ task.name }}
+                            </button>
+                        </div>
+
+                        <!-- 項目 (Tasks) 列表 -->
+                        <div class="space-y-10">
+                            <div v-for="(task, index) in getTasksForActiveProject()" :key="task.id" :id="'task-box-' + task.id" class="bg-white rounded-3xl shadow-md border border-gray-200 overflow-hidden relative scroll-mt-28">
+                                
+                                <div :class="['px-8 py-6 border-b flex flex-col md:flex-row justify-between md:items-center', getTaskHeaderColor(index)]">
+                                    <div class="mb-4 md:mb-0">
+                                        <h4 class="text-2xl font-black flex items-center">
+                                            {{ task.name }}
+                                        </h4>
+                                    </div>
+                                    <div class="flex space-x-3">
+                                        <button @click="openEditTask(task)" class="bg-white/90 border border-black/10 text-gray-900 hover:bg-white px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-sm"><i class="fas fa-edit mr-2 text-amber-600"></i>編輯大項</button>
+                                        <button @click="deleteTask(task.id)" class="bg-white/90 border border-red-300 text-red-600 hover:bg-red-50 px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-sm"><i class="fas fa-trash-alt mr-2"></i>刪除大項</button>
+                                    </div>
+                                </div>
+
+                                <div class="p-8 bg-white">
+                                    <div class="mb-6 flex items-center justify-between text-gray-700">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-list-check mr-3 text-2xl text-amber-500"></i>
+                                            <h5 class="text-lg font-black">任務與時程</h5>
+                                        </div>
+                                        <button @click="toggleCollapseCompleted" class="text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg border border-gray-300 transition shadow-sm">
+                                            <i class="fas fa-compress-arrows-alt mr-2"></i> {{ showCompleted ? '收合已完成項目' : '展開已完成項目' }}
+                                        </button>
+                                    </div>
+                                        
+                                    <div class="space-y-5">
+                                        <div v-for="st in getSubTasksForTask(task.id)" :key="st.id">
+                                            
+                                            <!-- 已完成且收合 -->
+                                            <div v-if="st.status === 'completed' && !showCompleted" :id="'task-row-' + st.id" class="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200 shadow-sm opacity-70 scroll-mt-28">
+                                                <div class="flex items-center space-x-4">
+                                                    <span class="bg-gray-300 text-gray-700 text-xs font-black px-3 py-1 rounded">已完成</span>
+                                                    <span class="text-base font-bold text-gray-500 line-through">{{ st.name }}</span>
+                                                </div>
+                                                <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                                    <span>期限: {{ st.deadline }}</span>
+                                                    <button @click="setSubTaskStatus(st.id, 'pending')" class="text-amber-600 hover:underline font-bold">取消完成</button>
+                                                </div>
+                                            </div>
+
+                                            <!-- 一般完整展示模式 (💡 狀態按鈕、開工/截止日與標題全面整理為同一列右側對齊) -->
+                                            <div v-else :id="'task-row-' + st.id" :class="['p-5 md:p-6 rounded-2xl border transition scroll-mt-28', st.status === 'completed' ? 'bg-gray-50 border-gray-200 shadow-sm opacity-60' : 'bg-white border-gray-200 shadow-md hover:border-amber-300']">
+                                                
+                                                <div class="flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-5">
+                                                    
+                                                    <!-- 左側與右側對齊區塊：標題在左，時程與狀態按鈕靠右 -->
+                                                    <div class="flex-1 flex flex-wrap items-center justify-between gap-4">
+                                                        <!-- 標題 -->
+                                                        <p :class="['text-xl font-black break-words max-w-[320px]', st.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900']">{{ st.name }}</p>
+                                                        
+                                                        <!-- 右側靠齊群組 (日期徽章 + 狀態切換按鈕) -->
+                                                        <div class="flex flex-wrap items-center gap-3 ml-auto">
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="text-sm font-black px-3.5 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 shadow-sm flex items-center justify-center">
+                                                                    <i class="far fa-play-circle mr-1.5 text-blue-600 text-base"></i> 開工: {{ st.startDate }}
+                                                                </span>
+                                                                <span class="text-sm font-black px-3.5 py-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 shadow-sm flex items-center justify-center">
+                                                                    <i class="far fa-stop-circle mr-1.5 text-rose-600 text-base"></i> 截止: {{ st.deadline }}
+                                                                </span>
+                                                            </div>
+
+                                                            <div class="flex bg-gray-100 rounded-xl p-1.5 shrink-0 border border-gray-200 shadow-sm">
+                                                                <button @click="setSubTaskStatus(st.id, 'pending')" :class="['px-3 py-1.5 text-xs rounded-lg font-black transition', st.status==='pending' ? 'bg-gray-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200']">未處理</button>
+                                                                <button @click="setSubTaskStatus(st.id, 'in_progress')" :class="['px-3 py-1.5 text-xs rounded-lg font-black transition', st.status==='in_progress' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200']">進行中</button>
+                                                                <button @click="setSubTaskStatus(st.id, 'urgent')" :class="['px-3 py-1.5 text-xs rounded-lg font-black transition', st.status==='urgent' ? 'bg-red-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200']">緊急</button>
+                                                                <button @click="setSubTaskStatus(st.id, 'completed')" :class="['px-3 py-1.5 text-xs rounded-lg font-black transition', st.status==='completed' ? 'bg-green-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200']">已完成</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 動作按鈕 (最右側，不論有無便利貼按鈕永遠對齊，便利貼僅留icon) -->
+                                                    <div class="flex items-center justify-end gap-3 shrink-0 border-t 2xl:border-t-0 pt-4 2xl:pt-0 border-gray-100 pl-2">
+                                                        <button @click="openNoteModal(st)" :class="['border transition font-bold text-sm px-3.5 py-2.5 rounded-xl shadow-sm', st.note && st.note.trim() !== '' ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200']" title="便利貼筆記">
+                                                            <i class="fas fa-sticky-note"></i>
+                                                        </button>
+                                                        <button @click="openEditSubTask(st)" class="bg-gray-50 hover:bg-gray-200 text-gray-700 border border-gray-300 transition font-bold text-sm px-4 py-2 rounded-xl shadow-sm" title="修改時程"><i class="fas fa-edit"></i></button>
+                                                        <button @click="deleteSubTask(st.id)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-gray-200 transition font-bold text-sm px-4 py-2 rounded-xl shadow-sm" title="刪除"><i class="fas fa-trash-alt"></i></button>
+                                                    </div>
+
+                                                </div>
+
+                                                <!-- 便利貼區 (如果有的話，放在下一行) -->
+                                                <div v-if="st.note && st.note.trim() !== ''" class="mt-5 bg-amber-50/70 border border-amber-200/80 p-5 rounded-xl shadow-inner w-full">
+                                                    <div class="flex justify-between items-center mb-2">
+                                                        <span class="text-sm font-black text-amber-900 uppercase tracking-wide flex items-center">
+                                                            <i class="fas fa-sticky-note mr-2 text-amber-600 text-lg"></i> 便利貼筆記
+                                                        </span>
+                                                        <button @click="openNoteModal(st)" class="text-xs font-bold text-amber-800 bg-amber-200 hover:bg-amber-300 px-3 py-1.5 rounded-lg transition shadow-sm">
+                                                            <i class="fas fa-pen mr-1"></i> 編輯
+                                                        </button>
+                                                    </div>
+                                                    <p class="text-base text-gray-800 font-medium whitespace-pre-wrap mt-2">{{ st.note }}</p>
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    <!-- 新增子項目區塊 -->
+                                    <div v-if="addingSubTaskTo === task.id" class="mt-8 p-8 bg-gray-50 rounded-2xl border-2 border-gray-200 border-dashed fade-in">
+                                        <h6 class="text-lg font-black text-gray-800 mb-5 flex items-center"><i class="fas fa-plus bg-white p-2 rounded-lg border border-gray-200 shadow-sm mr-3 text-amber-600"></i>新增任務</h6>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                                            <div class="lg:col-span-3">
+                                                <label class="block text-sm font-bold text-gray-700 mb-2">任務名稱</label>
+                                                <input type="text" class="border-2 border-gray-300 p-4 rounded-xl text-base font-bold w-full focus:border-amber-500 focus:outline-none shadow-sm bg-white" v-model="newSubTask.name" />
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-bold text-gray-700 mb-2">開工日</label>
+                                                <input type="date" class="border-2 border-gray-300 p-4 rounded-xl text-base font-bold w-full focus:border-amber-500 focus:outline-none shadow-sm bg-white" v-model="newSubTask.startDate" />
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-bold text-gray-700 mb-2">完成期限 (DEADLINE)</label>
+                                                <input type="date" class="border-2 border-gray-300 p-4 rounded-xl text-base font-bold w-full focus:border-amber-500 focus:outline-none shadow-sm bg-white" v-model="newSubTask.deadline" />
+                                            </div>
+                                            <div class="lg:col-span-3">
+                                                <label class="block text-sm font-bold text-gray-700 mb-2"><i class="fas fa-sticky-note mr-1.5 text-purple-600"></i>初始便利貼筆記 (選填)</label>
+                                                <textarea class="border-2 border-gray-300 p-4 rounded-xl text-base w-full focus:border-amber-500 focus:outline-none shadow-sm bg-white" rows="2" placeholder="紀錄細節..." v-model="newSubTask.note"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-end space-x-4 pt-5 border-t border-gray-200">
+                                            <button @click="addingSubTaskTo = null" class="px-6 py-3 text-base text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-100 rounded-xl font-bold transition shadow-sm">取消</button>
+                                            <button @click="saveSubTask(task.id)" class="px-6 py-3 text-base bg-gray-900 text-white rounded-xl hover:bg-black font-black transition shadow-md inline-flex items-center"><i class="fas fa-check mr-2 text-amber-400"></i>儲存任務</button>
+                                        </div>
+                                    </div>
+                                    <button v-else @click="openAddSubTask(task.id)" class="mt-6 text-base text-gray-600 hover:text-gray-900 font-bold flex items-center justify-center py-4 px-5 rounded-2xl hover:bg-gray-100 transition border-2 border-dashed border-gray-300 hover:border-amber-400 hover:text-amber-600 w-full bg-gray-50/50">
+                                        <i class="fas fa-plus-circle mr-2 text-xl"></i> 新增任務
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 空狀態 -->
+                            <div v-if="getTasksForActiveProject().length === 0" class="text-center p-20 bg-white rounded-3xl border-2 border-dashed border-gray-300">
+                                <div class="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-gray-200">
+                                    <i class="fas fa-folder-open text-4xl text-gray-400"></i>
+                                </div>
+                                <h4 class="text-2xl font-black text-gray-900 mb-3">目前尚無大項目</h4>
+                                <button @click="isAddingTask = true" class="bg-gray-900 hover:bg-black text-white px-8 py-4 rounded-xl text-lg font-black transition shadow-lg mt-5">
+                                    <i class="fas fa-plus mr-2 text-amber-400"></i>新增大項目
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+
+            <!-- Modal: 新增專案/成員 -->
+            <div v-if="isAddingProject" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+                <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+                    <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
+                        <h3 class="font-black text-2xl text-amber-400"><i class="fas fa-user-plus mr-3"></i>新增專案/成員</h3>
+                        <button @click="isAddingProject = false" class="hover:text-amber-400 transition"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <div class="p-10 space-y-8">
+                        <div>
+                            <label class="block text-base font-bold text-gray-700 mb-3">專案/職務名稱</label>
+                            <input type="text" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:ring-2 focus:border-amber-500 focus:outline-none bg-gray-50 hover:bg-white transition text-lg font-bold" placeholder="例: 財務行政 / 新進人員" v-model="newProjectName" />
+                        </div>
+                        <button @click="saveNewProject" class="w-full bg-amber-500 text-gray-900 font-black text-xl py-4 rounded-xl mt-4 hover:bg-amber-600 transition shadow-lg">確認新增</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: 編輯專案名稱 -->
+            <div v-if="isEditingProject" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+                <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+                    <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
+                        <h3 class="font-black text-2xl text-amber-400"><i class="fas fa-edit mr-3"></i>編輯專案名稱</h3>
+                        <button @click="isEditingProject = false" class="hover:text-amber-400 transition"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <div class="p-10 space-y-8">
+                        <div>
+                            <label class="block text-base font-bold text-gray-700 mb-3">專案/職務名稱</label>
+                            <input type="text" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-amber-500 focus:outline-none bg-gray-50 hover:bg-white transition text-lg font-bold" v-model="editingProjectData.name" />
+                        </div>
+                        <div class="flex space-x-4 mt-6">
+                            <button @click="isEditingProject = false" class="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-xl hover:bg-gray-200 transition shadow-sm text-lg">取消</button>
+                            <button @click="saveEditProject" class="flex-1 bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-black transition shadow-lg text-lg">儲存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: 編輯便利貼筆記 -->
+            <div v-if="noteModalData.isOpen" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+                <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
+                    <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
+                        <h3 class="font-black text-2xl text-amber-400"><i class="fas fa-sticky-note mr-3"></i>便利貼筆記</h3>
+                        <button @click="noteModalData.isOpen = false" class="hover:text-amber-400 transition"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <div class="p-10 space-y-6">
+                        <p class="text-sm font-bold text-gray-500">正在編輯任務：<span class="text-gray-900 font-black text-base ml-1">{{ noteModalData.taskName }}</span></p>
+                        <div>
+                            <textarea class="w-full border-2 border-gray-300 rounded-xl p-5 focus:border-amber-500 focus:outline-none bg-amber-50/50 shadow-inner text-base font-medium" rows="6" placeholder="記錄此項目的細節、會議討論內容、狀態等..." v-model="noteModalData.note"></textarea>
+                        </div>
+                        <div class="flex space-x-4 pt-4">
+                            <button @click="noteModalData.isOpen = false" class="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-xl hover:bg-gray-200 transition text-lg">取消</button>
+                            <button @click="saveNoteModal" class="flex-1 bg-amber-500 text-gray-900 font-black py-4 rounded-xl hover:bg-amber-600 transition shadow-lg text-lg">儲存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: 新增工作大項 -->
+            <div v-if="isAddingTask" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+                <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+                    <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
+                        <h3 class="font-black text-2xl text-amber-400"><i class="fas fa-layer-group mr-3"></i>新增大項目</h3>
+                        <button @click="isAddingTask = false" class="hover:text-amber-400 transition"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <div class="p-10 space-y-8">
+                        <div>
+                            <label class="block text-base font-bold text-gray-700 mb-3">大項名稱</label>
+                            <input type="text" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-amber-500 focus:outline-none bg-gray-50 bg-white transition text-lg font-bold" placeholder="例: 展覽行政管理" v-model="newTask.name" />
+                        </div>
+                        <button @click="saveTask" class="w-full bg-amber-500 text-gray-900 font-black text-xl py-4 rounded-xl mt-4 hover:bg-amber-600 transition shadow-lg">確認新增</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: 編輯工作大項 -->
+            <div v-if="isEditingTask" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+                <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+                    <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
+                        <h3 class="font-black text-2xl text-amber-400"><i class="fas fa-pen-square mr-3"></i>修改大項</h3>
+                        <button @click="isEditingTask = false" class="hover:text-amber-400 transition"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <div class="p-10 space-y-8">
+                        <div>
+                            <label class="block text-base font-bold text-gray-700 mb-3">大項名稱</label>
+                            <input type="text" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-amber-500 focus:outline-none bg-gray-50 bg-white transition text-lg font-bold" v-model="editingTaskData.name" />
+                        </div>
+                        <div class="flex space-x-4 mt-6">
+                            <button @click="isEditingTask = false" class="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-xl hover:bg-gray-200 transition shadow-sm text-lg">取消</button>
+                            <button @click="saveEditTask" class="flex-1 bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-black transition shadow-lg text-lg">儲存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: 編輯子項目任務 -->
+            <div v-if="editingSubTaskId" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+                <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+                    <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
+                        <h3 class="font-black text-2xl text-amber-400"><i class="fas fa-edit mr-3"></i>編輯任務與時程</h3>
+                        <button @click="editingSubTaskId = null" class="hover:text-amber-400 transition"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <div class="p-10 space-y-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">任務名稱</label>
+                            <input type="text" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-amber-500 focus:outline-none bg-white shadow-sm text-base font-bold" v-model="editingSubTaskData.name" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">開工日</label>
+                            <input type="date" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-amber-500 focus:outline-none bg-white shadow-sm text-base font-bold" v-model="editingSubTaskData.startDate" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">完成期限 (DEADLINE)</label>
+                            <input type="date" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-amber-500 focus:outline-none bg-white shadow-sm text-base font-bold" v-model="editingSubTaskData.deadline" />
+                        </div>
+                        <div class="flex space-x-4 pt-6">
+                            <button @click="editingSubTaskId = null" class="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-xl hover:bg-gray-200 transition text-lg">取消</button>
+                            <button @click="saveEditSubTask" class="flex-1 bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-black transition shadow-lg text-lg">儲存修改</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const currentDate = '2026-07-20';
+                const activeProject = ref(null);
+                const isAddingTask = ref(false);
+                const addingSubTaskTo = ref(null);
+                
+                const isAddingProject = ref(false);
+                const newProjectName = ref('');
+                const isEditingProject = ref(false);
+                const editingProjectData = ref({ id: null, name: '' });
+
+                const isEditingTask = ref(false);
+                const editingTaskData = ref({ id: null, name: ''});
+                const editingSubTaskId = ref(null);
+                const editingSubTaskData = ref({ id: null, name: '', startDate: '', deadline: '' });
+
+                const noteModalData = ref({ isOpen: false, stId: null, taskName: '', note: '' });
+
+                const newTask = ref({ name: '' });
+                const newSubTask = ref({ name: '', startDate: '', deadline: '', note: '' });
+
+                const todayDateObj = new Date(currentDate);
+                const calendarYear = ref(todayDateObj.getFullYear());
+                const calendarMonth = ref(todayDateObj.getMonth());
+
+                const showCompleted = ref(false);
+                const toggleCollapseCompleted = () => {
+                    showCompleted.value = !showCompleted.value;
+                };
+
+                const savedProjects = localStorage.getItem('timtos_projects_v29');
+                const projects = ref(savedProjects ? JSON.parse(savedProjects) : [
+                    { id: 1, name: '展務工作', dotColor: 'bg-blue-600' },
+                    { id: 2, name: '國外宣傳', dotColor: 'bg-emerald-600' },
+                    { id: 3, name: '國內宣傳', dotColor: 'bg-amber-500' }
+                ]);
+
+                const saveNewProject = () => {
+                    if (newProjectName.value.trim() !== '') {
+                        const newId = projects.value.length ? Math.max(...projects.value.map(p => p.id)) + 1 : 1;
+                        const colors = ['bg-purple-600', 'bg-cyan-600', 'bg-pink-600', 'bg-indigo-600', 'bg-orange-600', 'bg-teal-600'];
+                        const dotColor = colors[newId % colors.length];
+                        projects.value.push({ id: newId, name: newProjectName.value.trim(), dotColor });
+                        
+                        tasks.value.push({ id: newId * 100 + 1, projectId: newId, name: '主要籌備工作' });
+
+                        newProjectName.value = '';
+                        isAddingProject.value = false;
+                    }
+                };
+
+                const openEditProject = () => {
+                    if(activeProject.value) {
+                        editingProjectData.value = { ...activeProject.value };
+                        isEditingProject.value = true;
+                    }
+                };
+
+                const saveEditProject = () => {
+                    const idx = projects.value.findIndex(p => p.id === editingProjectData.value.id);
+                    if(idx !== -1) {
+                        projects.value[idx].name = editingProjectData.value.name;
+                        activeProject.value.name = editingProjectData.value.name;
+                    }
+                    isEditingProject.value = false;
+                };
+
+                const deleteProject = () => {
+                    if(activeProject.value && confirm(`確定要刪除專案 [${activeProject.value.name}] 及其所有項目嗎？此動作無法復原！`)) {
+                        const pId = activeProject.value.id;
+                        projects.value = projects.value.filter(p => p.id !== pId);
+                        
+                        const taskIdsToRemove = tasks.value.filter(t => t.projectId === pId).map(t => t.id);
+                        tasks.value = tasks.value.filter(t => t.projectId !== pId);
+                        subTasks.value = subTasks.value.filter(st => !taskIdsToRemove.includes(st.taskId));
+                        
+                        activeProject.value = null;
+                    }
+                };
+
+                watch(projects, (newVal) => {
+                    localStorage.setItem('timtos_projects_v29', JSON.stringify(newVal));
+                }, { deep: true });
+                
+                const defaultTasks = [
+                    { id: 101, projectId: 1, name: '展務籌備與徵展' },
+                    { id: 102, projectId: 1, name: '參展商服務與結算' },
+                    { id: 201, projectId: 2, name: '國際推廣與公關' },
+                    { id: 202, projectId: 2, name: '外文文宣與刊物' },
+                    { id: 301, projectId: 3, name: '國際論壇籌備' },
+                    { id: 302, projectId: 3, name: '媒體與廣告宣傳' }
+                ];
+
+                const defaultSubTasks = [
+                    { id: 1101, taskId: 101, name: '第一次籌備會議', startDate: '2026-03-02', deadline: '2026-04-02', status: 'completed', note: '展前 11-12 個月完成' },
+                    { id: 1102, taskId: 101, name: '簽報實施計畫', startDate: '2026-04-02', deadline: '2026-05-02', status: 'completed', note: '展前 10-11 個月完成' },
+                    { id: 1103, taskId: 101, name: '徵展起跑', startDate: '2026-06-02', deadline: '2026-07-02', status: 'in_progress', note: '展前 8-9 個月啟動' },
+                    { id: 1104, taskId: 101, name: '攤位訂金催繳', startDate: '2026-07-02', deadline: '2026-08-02', status: 'pending', note: '展前 7-8 個月' },
+                    { id: 1105, taskId: 101, name: '參展商選位說明會', startDate: '2026-09-02', deadline: '2026-10-02', status: 'pending', note: '展前 5-6 個月' },
+                    { id: 1106, taskId: 101, name: '國內外參觀者預先登記開放', startDate: '2026-09-02', deadline: '2027-03-06', status: 'pending', note: '展前 6 個月開放持續受理到展期最後一天' },
+                    
+                    { id: 1107, taskId: 102, name: '受理參展商各項申請', startDate: '2026-10-02', deadline: '2026-11-02', status: 'pending', note: '展前 4-5 個月' },
+                    { id: 1108, taskId: 102, name: '催繳攤位費尾款', startDate: '2026-10-02', deadline: '2026-11-02', status: 'pending', note: '展前 4-5 個月' },
+                    { id: 1109, taskId: 102, name: '退展遞補作業/持續接受報名', startDate: '2026-10-02', deadline: '2026-11-02', status: 'pending', note: '展前 4-5 個月' },
+                    { id: 1110, taskId: 102, name: '裝潢及布置物討論確認', startDate: '2026-11-02', deadline: '2026-12-02', status: 'pending', note: '展前 3-4 個月' },
+                    { id: 1111, taskId: 102, name: '展場人力服務合約商討論', startDate: '2027-01-02', deadline: '2027-02-02', status: 'pending', note: '展前 1-2 個月討論人力配置' },
+                    { id: 1112, taskId: 102, name: '各式請購', startDate: '2027-01-02', deadline: '2027-02-02', status: 'pending', note: '展前 1-2 個月' },
+                    { id: 1113, taskId: 102, name: '發送進出場通知予參展商', startDate: '2027-02-02', deadline: '2027-02-15', status: 'pending', note: '展前 1 個月' },
+                    { id: 1114, taskId: 102, name: '展後工作報告', startDate: '2027-03-07', deadline: '2027-04-06', status: 'pending', note: '展後 1 個月內完成' },
+                    { id: 1115, taskId: 102, name: '展覽結算', startDate: '2027-03-07', deadline: '2027-05-06', status: 'pending', note: '展後 2 個月內須完成' },
+
+                    { id: 2101, taskId: 201, name: '展覽&公協會交換攤位', startDate: '2026-09-02', deadline: '2027-03-02', status: 'in_progress', note: '展前 6 個月開始一直交換到開展' },
+                    { id: 2102, taskId: 201, name: 'Linkedin經營', startDate: '2026-09-02', deadline: '2027-03-06', status: 'in_progress', note: '展前 6 個月開始直到展覽結束' },
+                    { id: 2103, taskId: 201, name: '簽報國外媒體宣傳計畫', startDate: '2026-10-02', deadline: '2026-10-31', status: 'pending', note: '展前 5 個月完成' },
+                    { id: 2104, taskId: 201, name: '國外媒體邀請', startDate: '2026-11-02', deadline: '2026-11-30', status: 'pending', note: '展前 4 個月' },
+                    { id: 2105, taskId: 201, name: '開幕典禮Press Kit', startDate: '2027-02-23', deadline: '2027-03-01', status: 'pending', note: '展前 1 週' },
+                    { id: 2106, taskId: 202, name: '大會刊物製作', startDate: '2026-12-01', deadline: '2027-02-15', status: 'pending', note: '包含 Show Guide、Show Map、Show Daily、Official Directory、電子報' },
+
+                    { id: 3101, taskId: 301, name: '國際論壇籌備', startDate: '2026-07-03', deadline: '2027-03-03', status: 'in_progress', note: '舉辦於 2027/3/3，展前 8 個月開始籌備' },
+                    { id: 3102, taskId: 301, name: '講者邀請與議題安排', startDate: '2026-09-01', deadline: '2026-11-30', status: 'pending', note: '' },
+                    { id: 3103, taskId: 302, name: '簽報國內媒體宣傳計畫', startDate: '2026-11-02', deadline: '2026-11-30', status: 'pending', note: '展前 4 個月' },
+                    { id: 3104, taskId: 302, name: '展覽FB、IG經營', startDate: '2026-07-01', deadline: '2027-03-06', status: 'in_progress', note: '展前至展覽結束持續更新' },
+                    { id: 3105, taskId: 302, name: '參展商會議室申請表收集', startDate: '2026-09-01', deadline: '2027-01-15', status: 'pending', note: '2026/9/1 - 2027/1/15 期間收集' },
+                    { id: 3106, taskId: 302, name: '新聞稿撰寫', startDate: '2026-12-01', deadline: '2027-03-06', status: 'pending', note: '包含論壇宣傳、準備開展、開幕及閉幕新聞稿' },
+                    { id: 3107, taskId: 302, name: '展覽10秒宣傳廣告片', startDate: '2026-09-02', deadline: '2027-12-31', status: 'pending', note: '展前 6 個月規劃，預計 2027 年完成並投放' },
+                    { id: 3108, taskId: 302, name: '展覽形象片', startDate: '2026-09-02', deadline: '2027-01-31', status: 'pending', note: '展前 6 個月規劃，預計 2027 年 1 月完成並投放' },
+                    { id: 3109, taskId: 302, name: '新聞中心裝潢布置及服務規劃', startDate: '2027-02-02', deadline: '2027-03-01', status: 'pending', note: '展前 1 個月' },
+                    { id: 3110, taskId: 302, name: '展中攝影要點溝通', startDate: '2027-02-16', deadline: '2027-02-28', status: 'pending', note: '展前 2 週' }
+                ];
+
+                const savedSubTasks = localStorage.getItem('timtos_subtasks_v29');
+                const savedTasks = localStorage.getItem('timtos_tasks_v29');
+
+                const subTasks = ref(savedSubTasks ? JSON.parse(savedSubTasks) : defaultSubTasks);
+                const tasks = ref(savedTasks ? JSON.parse(savedTasks) : defaultTasks);
+
+                watch(subTasks, (newVal) => {
+                    localStorage.setItem('timtos_subtasks_v29', JSON.stringify(newVal));
+                }, { deep: true });
+
+                watch(tasks, (newVal) => {
+                    localStorage.setItem('timtos_tasks_v29', JSON.stringify(newVal));
+                }, { deep: true });
+
+                // 💡 精準計算從當前系統日期 (2026-07-20) 到 2027年3月2日開展的倒數時間 (7個月10天 / 225天)
+                const countdownMonthsDays = computed(() => {
+                    const today = new Date(currentDate);
+                    const exDate = new Date('2027-03-02');
+                    if (today >= exDate) return '已開展！';
+                    
+                    let years = exDate.getFullYear() - today.getFullYear();
+                    let months = exDate.getMonth() - today.getMonth() + years * 12;
+                    let days = exDate.getDate() - today.getDate();
+                    
+                    if (days < 0) {
+                        months--;
+                        const prevMonthLastDay = new Date(exDate.getFullYear(), exDate.getMonth(), 0).getDate();
+                        days += prevMonthLastDay;
+                    }
+                    if (months < 0) months = 0;
+                    
+                    let mStr = months > 0 ? `${months} 個月` : '';
+                    let dStr = `${days} 天`;
+                    return `${mStr} ${dStr}`;
+                });
+
+                const daysToExhibition = computed(() => {
+                    const today = new Date(currentDate);
+                    const exDate = new Date('2027-03-02');
+                    return Math.max(0, Math.ceil((exDate - today) / (1000 * 60 * 60 * 24)));
+                });
+
+                const getRemindersForProject = (projId) => {
+                    const today = new Date(currentDate);
+                    let projectTaskIds = tasks.value.filter(t => t.projectId === projId).map(t => t.id);
+                    let upcoming = [];
+                    
+                    subTasks.value.forEach(st => {
+                        if (projectTaskIds.includes(st.taskId) && st.status !== 'completed') {
+                            const startDate = new Date(st.startDate);
+                            const daysDiff = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                            
+                            if (daysDiff <= 14 && daysDiff >= -30) {
+                                const parentTask = tasks.value.find(t => t.id === st.taskId);
+                                upcoming.push({
+                                    ...st,
+                                    taskName: parentTask?.name || '專案任務',
+                                    isUrgent: daysDiff <= 3 || st.status === 'urgent'
+                                });
+                            }
+                        }
+                    });
+                    return upcoming.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                };
+
+                const getProjectInProgressTasks = (projId) => {
+                    let projectTaskIds = tasks.value.filter(t => t.projectId === projId).map(t => t.id);
+                    let list = [];
+                    subTasks.value.forEach(st => {
+                        if (projectTaskIds.includes(st.taskId) && (st.status === 'in_progress' || st.status === 'urgent')) {
+                            list.push(st);
+                        }
+                    });
+                    return list;
+                };
+
+                const getProjectActiveTasks = (projId) => {
+                    let projectTaskIds = tasks.value.filter(t => t.projectId === projId).map(t => t.id);
+                    return subTasks.value.filter(st => projectTaskIds.includes(st.taskId) && st.status !== 'completed');
+                };
+
+                const changeMonth = (delta) => {
+                    let newM = calendarMonth.value + delta;
+                    if(newM > 11) { newM = 0; calendarYear.value++; }
+                    if(newM < 0) { newM = 11; calendarYear.value--; }
+                    calendarMonth.value = newM;
+                };
+
+                const calendarGrid = computed(() => {
+                    const firstDay = new Date(calendarYear.value, calendarMonth.value, 1).getDay();
+                    const daysInMonth = new Date(calendarYear.value, calendarMonth.value + 1, 0).getDate();
+                    let days = [];
+                    for(let i=0; i<firstDay; i++) days.push(null);
+                    for(let i=1; i<=daysInMonth; i++) days.push(new Date(calendarYear.value, calendarMonth.value, i));
+                    return days;
+                });
+
+                const isToday = (d) => d && d.getDate() === 20 && d.getMonth() === 6 && d.getFullYear() === 2026;
+                const isExhibitionDate = (d) => d && d.getFullYear() === 2027 && d.getMonth() === 2 && d.getDate() >= 2 && d.getDate() <= 6;
+
+                // 顏色對照表 (行事曆截止日改為對應職務的柔和深色字體背景，不再一律是紅色)
+                const colorStyles = {
+                    'bg-blue-600': { start: 'bg-blue-600 text-white', end: 'bg-blue-100 text-blue-900 border border-blue-300 font-bold' },
+                    'bg-emerald-600': { start: 'bg-emerald-600 text-white', end: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold' },
+                    'bg-amber-500': { start: 'bg-amber-500 text-white', end: 'bg-amber-100 text-amber-900 border border-amber-300 font-bold' },
+                    'bg-purple-600': { start: 'bg-purple-600 text-white', end: 'bg-purple-100 text-purple-900 border border-purple-300 font-bold' },
+                    'bg-cyan-600': { start: 'bg-cyan-600 text-white', end: 'bg-cyan-100 text-cyan-900 border border-cyan-300 font-bold' },
+                    'bg-pink-600': { start: 'bg-pink-600 text-white', end: 'bg-pink-100 text-pink-900 border border-pink-300 font-bold' },
+                    'bg-indigo-600': { start: 'bg-indigo-600 text-white', end: 'bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold' },
+                    'bg-orange-600': { start: 'bg-orange-600 text-white', end: 'bg-orange-100 text-orange-900 border border-orange-300 font-bold' },
+                    'bg-teal-600': { start: 'bg-teal-600 text-white', end: 'bg-teal-100 text-teal-900 border border-teal-300 font-bold' }
+                };
+
+                // 行事曆顯示：開工實色，截止職務專屬色塊
+                const getEventsForDay = (dateObj) => {
+                    if(!dateObj) return [];
+                    const y = dateObj.getFullYear();
+                    const m = String(dateObj.getMonth()+1).padStart(2,'0');
+                    const d = String(dateObj.getDate()).padStart(2,'0');
+                    const formattedDate = `${y}-${m}-${d}`;
+
+                    let evts = [];
+                    subTasks.value.forEach(st => {
+                        const parentTask = tasks.value.find(t => t.id === st.taskId);
+                        if (!parentTask) return;
+                        const parentProject = projects.value.find(p => p.id === parentTask.projectId);
+                        if (!parentProject) return;
+
+                        const isCompleted = st.status === 'completed';
+                        let baseColor = parentProject.dotColor || 'bg-blue-600';
+                        let cStyle = colorStyles[baseColor] || colorStyles['bg-blue-600'];
+
+                        if (st.startDate === formattedDate) {
+                            let badgeClass = isCompleted ? 'bg-gray-200 text-gray-500 font-bold line-through border border-gray-300' : cStyle.start + ' font-black';
+                            evts.push({ 
+                                id: st.id + '-start', 
+                                taskId: st.id, 
+                                projectId: parentProject.id, 
+                                projectName: parentProject.name, 
+                                type: 'start', 
+                                name: st.name, 
+                                label: isCompleted ? '已完成' : '開工', 
+                                badgeClass 
+                            });
+                        }
+
+                        if (st.deadline === formattedDate && st.startDate !== formattedDate) {
+                            let badgeClass = isCompleted ? 'bg-gray-200 text-gray-500 font-bold line-through border border-gray-300' : cStyle.end + ' font-black';
+                            evts.push({ 
+                                id: st.id + '-end', 
+                                taskId: st.id, 
+                                projectId: parentProject.id, 
+                                projectName: parentProject.name, 
+                                type: 'end', 
+                                name: st.name, 
+                                label: isCompleted ? '已完成' : '截止', 
+                                badgeClass 
+                            });
+                        }
+                    });
+                    return evts;
+                };
+
+                const getProjectProgress = (projectId) => {
+                    const projectTaskIds = tasks.value.filter(t => t.projectId === projectId).map(t => t.id);
+                    const projectSubTasks = subTasks.value.filter(st => projectTaskIds.includes(st.taskId));
+                    if (projectSubTasks.length === 0) return 0;
+                    const completed = projectSubTasks.filter(st => st.status === 'completed').length;
+                    return Math.round((completed / projectSubTasks.length) * 100);
+                };
+
+                const getTasksForActiveProject = () => tasks.value.filter(t => t.projectId === activeProject.value?.id);
+                
+                const getSubTasksForTask = (taskId) => {
+                    let list = subTasks.value.filter(st => st.taskId === taskId);
+                    return list.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                };
+
+                const setSubTaskStatus = (id, newStatus) => {
+                    const st = subTasks.value.find(s => s.id === id);
+                    if(st) st.status = newStatus;
+                };
+
+                const getTaskHeaderColor = (index) => {
+                    const palettes = [
+                        'bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 border-amber-400 font-black shadow-sm',
+                        'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 font-black shadow-sm',
+                        'bg-gradient-to-r from-purple-600 to-violet-600 text-white border-purple-500 font-black shadow-sm',
+                        'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 font-black shadow-sm'
+                    ];
+                    return palettes[index % palettes.length];
+                };
+
+                const saveTask = () => {
+                    if (newTask.value.name && activeProject.value) {
+                        const id = tasks.value.length ? Math.max(...tasks.value.map(t => t.id)) + 1 : 1;
+                        tasks.value.push({ id, projectId: activeProject.value.id, ...newTask.value });
+                        isAddingTask.value = false;
+                        newTask.value = { name: '' };
+                    }
+                };
+
+                const openAddSubTask = (taskId) => {
+                    addingSubTaskTo.value = taskId;
+                    newSubTask.value = { name: '', startDate: '', deadline: '', note: '' };
+                    editingSubTaskId.value = null; 
+                };
+
+                const saveSubTask = (taskId) => {
+                    if (newSubTask.value.name && newSubTask.value.startDate && newSubTask.value.deadline) {
+                        const id = subTasks.value.length ? Math.max(...subTasks.value.map(s => s.id)) + 1 : 1;
+                        subTasks.value.push({ id, taskId, status: 'pending', ...newSubTask.value });
+                        addingSubTaskTo.value = null;
+                        newSubTask.value = { name: '', startDate: '', deadline: '', note: '' };
+                    }
+                };
+
+                const openNoteModal = (st) => {
+                    noteModalData.value = {
+                        isOpen: true,
+                        stId: st.id,
+                        taskName: st.name,
+                        note: st.note || ''
+                    };
+                };
+
+                const saveNoteModal = () => {
+                    const st = subTasks.value.find(s => s.id === noteModalData.value.stId);
+                    if (st) st.note = noteModalData.value.note;
+                    noteModalData.value.isOpen = false;
+                };
+
+                // 點擊行事曆事件連動跳轉到對應專案與任務
+                const jumpToProjectTask = (projId, stId) => {
+                    const targetProj = projects.value.find(p => p.id === projId);
+                    if (targetProj) {
+                        activeProject.value = targetProj;
+                        nextTick(() => {
+                            setTimeout(() => {
+                                const el = document.getElementById('task-row-' + stId);
+                                if (el) {
+                                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    el.classList.add('ring-4', 'ring-amber-400', 'bg-amber-100');
+                                    setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400', 'bg-amber-100'), 2000);
+                                }
+                            }, 150);
+                        });
+                    }
+                };
+
+                // 快速導覽大項目滾動定位
+                const scrollToTaskSection = (boxId) => {
+                    const el = document.getElementById(boxId);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        el.classList.add('ring-4', 'ring-amber-400');
+                        setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400'), 1500);
+                    }
+                };
+
+                const openEditTask = (task) => {
+                    editingTaskData.value = { ...task };
+                    isEditingTask.value = true;
+                };
+                const saveEditTask = () => {
+                    const idx = tasks.value.findIndex(t => t.id === editingTaskData.value.id);
+                    if(idx !== -1) tasks.value[idx].name = editingTaskData.value.name;
+                    isEditingTask.value = false;
+                };
+                
+                const openEditSubTask = (st) => {
+                    editingSubTaskData.value = { ...st };
+                    editingSubTaskId.value = st.id;
+                    addingSubTaskTo.value = null; 
+                };
+                const saveEditSubTask = () => {
+                    const idx = subTasks.value.findIndex(s => s.id === editingSubTaskData.value.id);
+                    if(idx !== -1) {
+                        subTasks.value[idx] = { ...subTasks.value[idx], ...editingSubTaskData.value };
+                    }
+                    editingSubTaskId.value = null;
+                };
+                
+                const deleteTask = (id) => {
+                    if(confirm('確定要刪除這個大項目嗎？')) {
+                        tasks.value = tasks.value.filter(t => t.id !== id);
+                        subTasks.value = subTasks.value.filter(st => st.taskId !== id);
+                    }
+                };
+                const deleteSubTask = (id) => {
+                    if(confirm('確定要刪除這個任務嗎？')) {
+                        subTasks.value = subTasks.value.filter(st => st.id !== id);
+                        editingSubTaskId.value = null;
+                    }
+                };
+
+                return {
+                    currentDate, daysToExhibition, countdownMonthsDays,
+                    projects, tasks, subTasks, activeProject, showCompleted, toggleCollapseCompleted,
+                    calendarYear, calendarMonth, changeMonth, calendarGrid, isToday, isExhibitionDate, getEventsForDay, jumpToProjectTask, scrollToTaskSection,
+                    isAddingTask, addingSubTaskTo, noteModalData, isAddingProject, newProjectName, saveNewProject,
+                    isEditingProject, editingProjectData, openEditProject, saveEditProject, deleteProject,
+                    isEditingTask, editingTaskData, editingSubTaskId, editingSubTaskData,
+                    newTask, newSubTask, getRemindersForProject, getProjectInProgressTasks, getProjectActiveTasks,
+                    getProjectProgress, getTasksForActiveProject, getSubTasksForTask, setSubTaskStatus, getTaskHeaderColor,
+                    saveTask, openAddSubTask, saveSubTask, openNoteModal, saveNoteModal,
+                    openEditTask, saveEditTask, openEditSubTask, saveEditSubTask,
+                    deleteTask, deleteSubTask
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
