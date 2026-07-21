@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TIMTOS 2027 跨部門協同戰情中心 (V29 最終極致版)</title>
+    <title>TIMTOS 2027 跨部門協同戰情中心 (雲端即時共編版)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     
     <script>
         tailwind.config = {
@@ -41,7 +44,7 @@
 <body class="bg-gray-100 text-gray-900 text-base">
     <div id="app" v-cloak>
         <div class="min-h-screen flex fade-in">
-            <!-- 左側導覽列 (支援新增專案/成員) -->
+            <!-- 左側導覽列 -->
             <div class="w-80 bg-techcard border-r border-techborder flex flex-col shadow-2xl hidden md:flex shrink-0 relative z-20 text-gray-100">
                 <div class="p-6 border-b border-techborder bg-techdark text-center">
                     <h2 class="text-3xl font-black tracking-wider text-accent drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]">TIMTOS <span class="text-white">2027</span></h2>
@@ -75,14 +78,14 @@
                             ☁️
                         </div>
                         <div class="ml-4">
-                            <span class="block text-base text-gray-200 font-bold truncate w-28">雲端狀態</span>
-                            <span class="block text-sm text-emerald-400 font-bold"><i class="fas fa-circle text-[10px] mr-1.5 animate-pulse"></i>自動同步中</span>
+                            <span class="block text-base text-gray-200 font-bold truncate w-28">Firebase</span>
+                            <span class="block text-sm text-emerald-400 font-bold"><i class="fas fa-circle text-[10px] mr-1.5 animate-pulse"></i>即時同步中</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 右側主要工作區域 (白底) -->
+            <!-- 右側主要工作區域 -->
             <div class="flex-1 flex flex-col h-screen overflow-hidden bg-white">
                 <!-- Header -->
                 <header class="bg-white shadow-sm py-5 px-8 flex justify-between items-center shrink-0 border-b border-gray-200 z-10">
@@ -91,9 +94,11 @@
                         <span v-if="!activeProject" class="ml-5 text-sm bg-amber-50 text-amber-800 px-4 py-2 rounded-lg border border-amber-200 font-black shadow-sm"><i class="fas fa-flag-checkered mr-2"></i> 距離開展還有：{{ countdownMonthsDays }}</span>
                     </h1>
                     <div class="flex items-center space-x-4">
-                        <span class="text-sm bg-emerald-100 text-emerald-800 font-bold px-4 py-2 rounded-lg border border-emerald-200"><i class="fas fa-cloud text-emerald-600 mr-2"></i> 進度已自動儲存</span>
+                        <span class="text-sm bg-blue-100 text-blue-800 font-bold px-4 py-2 rounded-lg border border-blue-200 shadow-sm animate-pulse">
+                            <i class="fas fa-satellite-dish mr-2 text-blue-600"></i> 雲端共編連線中
+                        </span>
                         <div class="flex items-center text-base font-bold text-gray-700 bg-gray-50 px-5 py-2.5 rounded-xl border border-gray-200 shadow-inner">
-                            <i class="far fa-clock mr-2 text-amber-600"></i> 系統日期: <span class="ml-1 text-gray-900">{{ currentDate }}</span>
+                            <i class="far fa-clock mr-2 text-amber-600"></i> <span class="ml-1">{{ currentDate }}</span>
                         </div>
                     </div>
                 </header>
@@ -111,7 +116,7 @@
                                     <span class="text-sm bg-amber-400 text-gray-900 font-black px-3 py-1.5 rounded-full shadow animate-pulse" v-if="calendarYear === 2027 && calendarMonth === 2">🔥 TIMTOS 2027 展期 (3/2-3/6) 🔥</span>
                                 </div>
                                 <div class="flex items-center space-x-6">
-                                    <!-- 💡 動態產生所有專案/職務圖例 -->
+                                    <!-- 動態圖例 -->
                                     <div class="hidden lg:flex flex-wrap items-center space-x-4 text-sm font-bold text-gray-300">
                                         <span v-for="p in projects" :key="'leg-' + p.id" class="flex items-center">
                                             <span :class="['w-3.5 h-3.5 rounded-full mr-1.5', p.dotColor]"></span>{{ p.name }}
@@ -156,7 +161,7 @@
                             </div>
                         </div>
 
-                        <!-- 2. 各職務負責人工作動態 (已刪除右上角亂七八糟的計數 badge) -->
+                        <!-- 2. 各職務負責人工作動態 -->
                         <div>
                             <h3 class="text-2xl font-black text-gray-900 mb-6 flex items-center"><i class="fas fa-tasks mr-3 text-amber-600"></i>各職務負責人工作動態</h3>
                             <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -169,7 +174,7 @@
                                     </div>
                                     <div class="p-6 flex-1 overflow-y-auto bg-gray-50/50 space-y-8">
                                         
-                                        <!-- 行進中的工作 -->
+                                        <!-- 行進中 -->
                                         <div>
                                             <div class="text-base font-black text-blue-900 uppercase tracking-wider mb-3 px-1 flex items-center"><i class="fas fa-spinner mr-2 text-blue-600"></i> 行進中的工作</div>
                                             <div v-if="getProjectInProgressTasks(p.id).length === 0" class="text-sm text-gray-400 italic px-2 pb-2">目前沒有進行中的工作</div>
@@ -184,7 +189,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- 14天內待辦事項 -->
+                                        <!-- 待辦 -->
                                         <div class="pt-4 border-t-2 border-gray-200">
                                             <div class="text-base font-black text-amber-900 uppercase tracking-wider mb-3 px-1 flex items-center"><i class="fas fa-business-time mr-2 text-amber-600"></i> 14天內待辦開工</div>
                                             <div v-if="getRemindersForProject(p.id).length === 0" class="text-sm text-gray-400 italic px-2 pb-2">目前無 14 天內待辦項目</div>
@@ -245,7 +250,7 @@
                             </div>
                         </div>
 
-                        <!-- 💡 大項目快捷導覽按鈕列 -->
+                        <!-- 💡 大項目快捷導覽 -->
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex flex-wrap items-center gap-3">
                             <span class="text-sm font-black text-gray-500 uppercase tracking-wider mr-3"><i class="fas fa-compass mr-1.5 text-amber-500"></i> 快速導覽大項目：</span>
                             <button v-for="task in getTasksForActiveProject()" :key="'nav-' + task.id" 
@@ -297,18 +302,17 @@
                                                 </div>
                                             </div>
 
-                                            <!-- 一般完整展示模式 (💡 狀態按鈕、開工/截止日與標題全面整理為同一列右側對齊) -->
+                                            <!-- 一般完整展示模式 (標題在左，狀態/時程/動作按鈕在右) -->
                                             <div v-else :id="'task-row-' + st.id" :class="['p-5 md:p-6 rounded-2xl border transition scroll-mt-28', st.status === 'completed' ? 'bg-gray-50 border-gray-200 shadow-sm opacity-60' : 'bg-white border-gray-200 shadow-md hover:border-amber-300']">
                                                 
                                                 <div class="flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-5">
                                                     
-                                                    <!-- 左側與右側對齊區塊：標題在左，時程與狀態按鈕靠右 -->
                                                     <div class="flex-1 flex flex-wrap items-center justify-between gap-4">
                                                         <!-- 標題 -->
                                                         <p :class="['text-xl font-black break-words max-w-[320px]', st.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900']">{{ st.name }}</p>
                                                         
-                                                        <!-- 右側靠齊群組 (日期徽章 + 狀態切換按鈕) -->
                                                         <div class="flex flex-wrap items-center gap-3 ml-auto">
+                                                            <!-- 開工 / 截止 -->
                                                             <div class="flex items-center gap-2">
                                                                 <span class="text-sm font-black px-3.5 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 shadow-sm flex items-center justify-center">
                                                                     <i class="far fa-play-circle mr-1.5 text-blue-600 text-base"></i> 開工: {{ st.startDate }}
@@ -318,6 +322,7 @@
                                                                 </span>
                                                             </div>
 
+                                                            <!-- 狀態 -->
                                                             <div class="flex bg-gray-100 rounded-xl p-1.5 shrink-0 border border-gray-200 shadow-sm">
                                                                 <button @click="setSubTaskStatus(st.id, 'pending')" :class="['px-3 py-1.5 text-xs rounded-lg font-black transition', st.status==='pending' ? 'bg-gray-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200']">未處理</button>
                                                                 <button @click="setSubTaskStatus(st.id, 'in_progress')" :class="['px-3 py-1.5 text-xs rounded-lg font-black transition', st.status==='in_progress' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-200']">進行中</button>
@@ -327,18 +332,18 @@
                                                         </div>
                                                     </div>
 
-                                                    <!-- 動作按鈕 (最右側，不論有無便利貼按鈕永遠對齊，便利貼僅留icon) -->
+                                                    <!-- 動作按鈕 (最右側對齊) -->
                                                     <div class="flex items-center justify-end gap-3 shrink-0 border-t 2xl:border-t-0 pt-4 2xl:pt-0 border-gray-100 pl-2">
                                                         <button @click="openNoteModal(st)" :class="['border transition font-bold text-sm px-3.5 py-2.5 rounded-xl shadow-sm', st.note && st.note.trim() !== '' ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200']" title="便利貼筆記">
                                                             <i class="fas fa-sticky-note"></i>
                                                         </button>
-                                                        <button @click="openEditSubTask(st)" class="bg-gray-50 hover:bg-gray-200 text-gray-700 border border-gray-300 transition font-bold text-sm px-4 py-2 rounded-xl shadow-sm" title="修改時程"><i class="fas fa-edit"></i></button>
-                                                        <button @click="deleteSubTask(st.id)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-gray-200 transition font-bold text-sm px-4 py-2 rounded-xl shadow-sm" title="刪除"><i class="fas fa-trash-alt"></i></button>
+                                                        <button @click="openEditSubTask(st)" class="bg-gray-50 hover:bg-gray-200 text-gray-700 border border-gray-300 transition font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm" title="修改時程"><i class="fas fa-edit"></i></button>
+                                                        <button @click="deleteSubTask(st.id)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-gray-200 transition font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm" title="刪除"><i class="fas fa-trash-alt"></i></button>
                                                     </div>
 
                                                 </div>
 
-                                                <!-- 便利貼區 (如果有的話，放在下一行) -->
+                                                <!-- 便利貼區 -->
                                                 <div v-if="st.note && st.note.trim() !== ''" class="mt-5 bg-amber-50/70 border border-amber-200/80 p-5 rounded-xl shadow-inner w-full">
                                                     <div class="flex justify-between items-center mb-2">
                                                         <span class="text-sm font-black text-amber-900 uppercase tracking-wide flex items-center">
@@ -403,7 +408,8 @@
                 </main>
             </div>
 
-            <!-- Modal: 新增專案/成員 -->
+            <!-- Modals -->
+            <!-- 新增專案/成員 -->
             <div v-if="isAddingProject" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
                 <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
                     <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
@@ -420,7 +426,7 @@
                 </div>
             </div>
 
-            <!-- Modal: 編輯專案名稱 -->
+            <!-- 編輯專案名稱 -->
             <div v-if="isEditingProject" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
                 <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
                     <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
@@ -440,7 +446,7 @@
                 </div>
             </div>
 
-            <!-- Modal: 編輯便利貼筆記 -->
+            <!-- 編輯便利貼筆記 -->
             <div v-if="noteModalData.isOpen" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
                 <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
                     <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
@@ -460,7 +466,7 @@
                 </div>
             </div>
 
-            <!-- Modal: 新增工作大項 -->
+            <!-- 新增工作大項 -->
             <div v-if="isAddingTask" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
                 <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
                     <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
@@ -477,7 +483,7 @@
                 </div>
             </div>
 
-            <!-- Modal: 編輯工作大項 -->
+            <!-- 編輯工作大項 -->
             <div v-if="isEditingTask" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
                 <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
                     <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
@@ -497,7 +503,7 @@
                 </div>
             </div>
 
-            <!-- Modal: 編輯子項目任務 -->
+            <!-- 編輯子項目任務 -->
             <div v-if="editingSubTaskId" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
                 <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
                     <div class="bg-gray-900 px-8 py-6 flex justify-between items-center text-white">
@@ -562,59 +568,11 @@
                     showCompleted.value = !showCompleted.value;
                 };
 
-                const savedProjects = localStorage.getItem('timtos_projects_v29');
-                const projects = ref(savedProjects ? JSON.parse(savedProjects) : [
+                const defaultProjects = [
                     { id: 1, name: '展務工作', dotColor: 'bg-blue-600' },
                     { id: 2, name: '國外宣傳', dotColor: 'bg-emerald-600' },
                     { id: 3, name: '國內宣傳', dotColor: 'bg-amber-500' }
-                ]);
-
-                const saveNewProject = () => {
-                    if (newProjectName.value.trim() !== '') {
-                        const newId = projects.value.length ? Math.max(...projects.value.map(p => p.id)) + 1 : 1;
-                        const colors = ['bg-purple-600', 'bg-cyan-600', 'bg-pink-600', 'bg-indigo-600', 'bg-orange-600', 'bg-teal-600'];
-                        const dotColor = colors[newId % colors.length];
-                        projects.value.push({ id: newId, name: newProjectName.value.trim(), dotColor });
-                        
-                        tasks.value.push({ id: newId * 100 + 1, projectId: newId, name: '主要籌備工作' });
-
-                        newProjectName.value = '';
-                        isAddingProject.value = false;
-                    }
-                };
-
-                const openEditProject = () => {
-                    if(activeProject.value) {
-                        editingProjectData.value = { ...activeProject.value };
-                        isEditingProject.value = true;
-                    }
-                };
-
-                const saveEditProject = () => {
-                    const idx = projects.value.findIndex(p => p.id === editingProjectData.value.id);
-                    if(idx !== -1) {
-                        projects.value[idx].name = editingProjectData.value.name;
-                        activeProject.value.name = editingProjectData.value.name;
-                    }
-                    isEditingProject.value = false;
-                };
-
-                const deleteProject = () => {
-                    if(activeProject.value && confirm(`確定要刪除專案 [${activeProject.value.name}] 及其所有項目嗎？此動作無法復原！`)) {
-                        const pId = activeProject.value.id;
-                        projects.value = projects.value.filter(p => p.id !== pId);
-                        
-                        const taskIdsToRemove = tasks.value.filter(t => t.projectId === pId).map(t => t.id);
-                        tasks.value = tasks.value.filter(t => t.projectId !== pId);
-                        subTasks.value = subTasks.value.filter(st => !taskIdsToRemove.includes(st.taskId));
-                        
-                        activeProject.value = null;
-                    }
-                };
-
-                watch(projects, (newVal) => {
-                    localStorage.setItem('timtos_projects_v29', JSON.stringify(newVal));
-                }, { deep: true });
+                ];
                 
                 const defaultTasks = [
                     { id: 101, projectId: 1, name: '展務籌備與徵展' },
@@ -662,21 +620,64 @@
                     { id: 3110, taskId: 302, name: '展中攝影要點溝通', startDate: '2027-02-16', deadline: '2027-02-28', status: 'pending', note: '展前 2 週' }
                 ];
 
-                const savedSubTasks = localStorage.getItem('timtos_subtasks_v29');
-                const savedTasks = localStorage.getItem('timtos_tasks_v29');
+                const projects = ref([]);
+                const tasks = ref([]);
+                const subTasks = ref([]);
 
-                const subTasks = ref(savedSubTasks ? JSON.parse(savedSubTasks) : defaultSubTasks);
-                const tasks = ref(savedTasks ? JSON.parse(savedTasks) : defaultTasks);
+                // ========== FIREBASE 雲端連線設定 ==========
+                firebase.initializeApp({
+                  apiKey: "AIzaSyC3glIXzQ8IHRqZHrdRa8SOI5s9PESLlAM",
+                  authDomain: "timtos2027.firebaseapp.com",
+                  databaseURL: "https://timtos2027-default-rtdb.firebaseio.com",
+                  projectId: "timtos2027",
+                  storageBucket: "timtos2027.firebasestorage.app",
+                  messagingSenderId: "806484813393",
+                  appId: "1:806484813393:web:626525006616041ebeba70"
+                });
+                
+                const db = firebase.database();
+                const dbRef = db.ref('timtos_war_room_v1');
 
-                watch(subTasks, (newVal) => {
-                    localStorage.setItem('timtos_subtasks_v29', JSON.stringify(newVal));
+                let isRemoteUpdate = false;
+                let isInitialized = false;
+
+                // 讀取 Firebase 資料庫
+                dbRef.on('value', (snapshot) => {
+                    isRemoteUpdate = true;
+                    const data = snapshot.val();
+                    if (data) {
+                        projects.value = data.projects || [];
+                        tasks.value = data.tasks || [];
+                        subTasks.value = data.subTasks || [];
+                    } else {
+                        // 如果資料庫完全沒資料，初始化並寫入雲端
+                        projects.value = defaultProjects;
+                        tasks.value = defaultTasks;
+                        subTasks.value = defaultSubTasks;
+                        setTimeout(() => {
+                            dbRef.set({
+                                projects: projects.value,
+                                tasks: tasks.value,
+                                subTasks: subTasks.value
+                            });
+                        }, 1000);
+                    }
+                    isInitialized = true;
+                    setTimeout(() => { isRemoteUpdate = false; }, 100);
+                });
+
+                // 監聽本地變更，同步到 Firebase
+                watch([projects, tasks, subTasks], () => {
+                    if (!isRemoteUpdate && isInitialized) {
+                        dbRef.set({
+                            projects: projects.value,
+                            tasks: tasks.value,
+                            subTasks: subTasks.value
+                        });
+                    }
                 }, { deep: true });
+                // ==========================================
 
-                watch(tasks, (newVal) => {
-                    localStorage.setItem('timtos_tasks_v29', JSON.stringify(newVal));
-                }, { deep: true });
-
-                // 💡 精準計算從當前系統日期 (2026-07-20) 到 2027年3月2日開展的倒數時間 (7個月10天 / 225天)
                 const countdownMonthsDays = computed(() => {
                     const today = new Date(currentDate);
                     const exDate = new Date('2027-03-02');
@@ -762,7 +763,6 @@
                 const isToday = (d) => d && d.getDate() === 20 && d.getMonth() === 6 && d.getFullYear() === 2026;
                 const isExhibitionDate = (d) => d && d.getFullYear() === 2027 && d.getMonth() === 2 && d.getDate() >= 2 && d.getDate() <= 6;
 
-                // 顏色對照表 (行事曆截止日改為對應職務的柔和深色字體背景，不再一律是紅色)
                 const colorStyles = {
                     'bg-blue-600': { start: 'bg-blue-600 text-white', end: 'bg-blue-100 text-blue-900 border border-blue-300 font-bold' },
                     'bg-emerald-600': { start: 'bg-emerald-600 text-white', end: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold' },
@@ -775,7 +775,6 @@
                     'bg-teal-600': { start: 'bg-teal-600 text-white', end: 'bg-teal-100 text-teal-900 border border-teal-300 font-bold' }
                 };
 
-                // 行事曆顯示：開工實色，截止職務專屬色塊
                 const getEventsForDay = (dateObj) => {
                     if(!dateObj) return [];
                     const y = dateObj.getFullYear();
@@ -845,6 +844,47 @@
                     if(st) st.status = newStatus;
                 };
 
+                const saveNewProject = () => {
+                    if (newProjectName.value.trim() !== '') {
+                        const newId = projects.value.length ? Math.max(...projects.value.map(p => p.id)) + 1 : 1;
+                        const colors = ['bg-purple-600', 'bg-cyan-600', 'bg-pink-600', 'bg-indigo-600', 'bg-orange-600', 'bg-teal-600'];
+                        const dotColor = colors[newId % colors.length];
+                        projects.value.push({ id: newId, name: newProjectName.value.trim(), dotColor });
+                        tasks.value.push({ id: newId * 100 + 1, projectId: newId, name: '主要籌備工作' });
+                        newProjectName.value = '';
+                        isAddingProject.value = false;
+                    }
+                };
+
+                const openEditProject = () => {
+                    if(activeProject.value) {
+                        editingProjectData.value = { ...activeProject.value };
+                        isEditingProject.value = true;
+                    }
+                };
+
+                const saveEditProject = () => {
+                    const idx = projects.value.findIndex(p => p.id === editingProjectData.value.id);
+                    if(idx !== -1) {
+                        projects.value[idx].name = editingProjectData.value.name;
+                        activeProject.value.name = editingProjectData.value.name;
+                    }
+                    isEditingProject.value = false;
+                };
+
+                const deleteProject = () => {
+                    if(activeProject.value && confirm(`確定要刪除專案 [${activeProject.value.name}] 及其所有項目嗎？此動作無法復原！`)) {
+                        const pId = activeProject.value.id;
+                        projects.value = projects.value.filter(p => p.id !== pId);
+                        
+                        const taskIdsToRemove = tasks.value.filter(t => t.projectId === pId).map(t => t.id);
+                        tasks.value = tasks.value.filter(t => t.projectId !== pId);
+                        subTasks.value = subTasks.value.filter(st => !taskIdsToRemove.includes(st.taskId));
+                        
+                        activeProject.value = null;
+                    }
+                };
+
                 const getTaskHeaderColor = (index) => {
                     const palettes = [
                         'bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 border-amber-400 font-black shadow-sm',
@@ -858,9 +898,9 @@
                 const saveTask = () => {
                     if (newTask.value.name && activeProject.value) {
                         const id = tasks.value.length ? Math.max(...tasks.value.map(t => t.id)) + 1 : 1;
-                        tasks.value.push({ id, projectId: activeProject.value.id, ...newTask.value });
+                        tasks.value.push({ id, projectId: activeProject.value.id, name: newTask.value.name });
                         isAddingTask.value = false;
-                        newTask.value = { name: '' };
+                        newTask.value.name = '';
                     }
                 };
 
@@ -894,7 +934,6 @@
                     noteModalData.value.isOpen = false;
                 };
 
-                // 點擊行事曆事件連動跳轉到對應專案與任務
                 const jumpToProjectTask = (projId, stId) => {
                     const targetProj = projects.value.find(p => p.id === projId);
                     if (targetProj) {
@@ -912,7 +951,6 @@
                     }
                 };
 
-                // 快速導覽大項目滾動定位
                 const scrollToTaskSection = (boxId) => {
                     const el = document.getElementById(boxId);
                     if (el) {
